@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin — Badya Uni Events</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="admin.css">
+</head>
+<body class="admin-body">
+    <!--
+      Sign in with an admin account from the database.
+      Default credentials are set in backend application.properties:
+        app.admin.email, app.admin.password, app.admin.name
+      (only applied when the admins table is empty on first startup).
+    -->
+    <div id="login-screen">
+        <div class="admin-login-card">
+            <h1><i class="fas fa-shield-halved" aria-hidden="true"></i> Admin sign in</h1>
+            <p class="admin-hint">Use the admin email and password configured for this server (see <code>application.properties</code>: <code>app.admin.*</code>).</p>
+            <div id="login-error" class="admin-login-error" role="alert"></div>
+            <form id="admin-login-form">
+                <label for="admin-email">Email</label>
+                <input type="email" id="admin-email" name="email" required autocomplete="username" placeholder="admin@badyauniversity.com">
+
+                <label for="admin-password">Password</label>
+                <input type="password" id="admin-password" name="password" required autocomplete="current-password" placeholder="Password">
+
+                <button type="submit">Sign in</button>
+            </form>
+            <a class="admin-back" href="index.html"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to public site</a>
+        </div>
+    </div>
+
+    <div id="admin-app" hidden>
+        <header class="admin-topbar">
+            <h1>Badya Uni Events — Admin</h1>
+            <span class="admin-welcome" id="admin-welcome"></span>
+            <a class="site-link" href="index.html">Public site</a>
+            <button type="button" id="admin-logout">Sign out</button>
+        </header>
+        <nav class="admin-tabs" role="tablist">
+            <button type="button" class="active" data-tab="events" role="tab" aria-selected="true">Events</button>
+            <button type="button" data-tab="users" role="tab" aria-selected="false">Users</button>
+            <button type="button" data-tab="bookings" role="tab" aria-selected="false">Bookings</button>
+        </nav>
+        <main class="admin-main">
+            <section id="tab-events" class="admin-tab-panel" role="tabpanel">
+                <div class="admin-toolbar">
+                    <h2>Events</h2>
+                    <button type="button" class="admin-btn admin-btn-primary" id="btn-add-event"><i class="fas fa-plus" aria-hidden="true"></i> Add event</button>
+                </div>
+                <div class="admin-table-wrap">
+                    <table class="admin-table" aria-label="Events">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Date</th>
+                                <th>Venue</th>
+                                <th>Category</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="events-table-body"></tbody>
+                    </table>
+                    <p id="events-empty" class="admin-empty" hidden>No events yet.</p>
+                </div>
+            </section>
+            <section id="tab-users" class="admin-tab-panel" hidden role="tabpanel">
+                <div class="admin-toolbar">
+                    <h2>Registered users</h2>
+                    <button type="button" class="admin-btn admin-btn-ghost" id="btn-refresh-users">Refresh</button>
+                </div>
+                <div class="admin-table-wrap">
+                    <table class="admin-table" aria-label="Users">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Profile QR</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table-body"></tbody>
+                    </table>
+                    <p id="users-empty" class="admin-empty" hidden>No users registered.</p>
+                </div>
+            </section>
+            <section id="tab-bookings" class="admin-tab-panel" hidden role="tabpanel">
+                <div class="admin-toolbar">
+                    <h2>All bookings</h2>
+                    <button type="button" class="admin-btn admin-btn-ghost" id="btn-refresh-bookings">Refresh</button>
+                </div>
+                <div class="admin-table-wrap">
+                    <table class="admin-table" aria-label="Bookings">
+                        <thead>
+                            <tr>
+                                <th>Event</th>
+                                <th>Student</th>
+                                <th>Email</th>
+                                <th>Tickets</th>
+                                <th>Total</th>
+                                <th>Booked</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bookings-table-body"></tbody>
+                    </table>
+                    <p id="bookings-empty" class="admin-empty" hidden>No bookings.</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="event-modal" class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="event-modal-title">
+        <div class="admin-modal-inner wide">
+            <button type="button" class="admin-modal-close" data-close-modal aria-label="Close">&times;</button>
+            <h3 id="event-modal-title">Add event</h3>
+            <form id="event-form" class="admin-form-grid">
+                <input type="hidden" id="ev-id" value="">
+                <label>Title<input type="text" id="ev-title" required></label>
+                <label>Description<textarea id="ev-description" required></textarea></label>
+                <label>Category
+                    <select id="ev-category" required>
+                        <option value="">Select…</option>
+                        <option value="academic">Academic</option>
+                        <option value="sports">Sports</option>
+                        <option value="cultural">Cultural</option>
+                        <option value="social">Social</option>
+                        <option value="workshop">Workshop</option>
+                        <option value="seminar">Seminar</option>
+                    </select>
+                </label>
+                <label>Date<input type="date" id="ev-date" required></label>
+                <label>Time<input type="time" id="ev-time" required step="1"></label>
+                <label>Venue<input type="text" id="ev-venue" required></label>
+                <label>Capacity<input type="number" id="ev-capacity" min="1" required></label>
+                <label>Price (per ticket)<input type="number" id="ev-price" min="0" step="0.01" required></label>
+                <label>Image URL<input type="url" id="ev-image" placeholder="https://…"></label>
+                <label>Organizer<input type="text" id="ev-organizer" required></label>
+                <label>Contact email<input type="email" id="ev-contact-email" required></label>
+                <div class="admin-form-actions">
+                    <button type="button" class="admin-btn admin-btn-ghost" data-close-modal>Cancel</button>
+                    <button type="submit" class="admin-btn admin-btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="user-modal" class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="user-modal-title">
+        <div class="admin-modal-inner">
+            <button type="button" class="admin-modal-close" data-close-user-modal aria-label="Close">&times;</button>
+            <h3 id="user-modal-title">Edit user</h3>
+            <form id="user-form" class="admin-form-grid">
+                <input type="hidden" id="usr-id" value="">
+                <label>Name<input type="text" id="usr-name" required></label>
+                <label>Email<input type="email" id="usr-email" required></label>
+                <label>New password <span style="font-weight:400;opacity:.8">(optional)</span><input type="password" id="usr-password" autocomplete="new-password" placeholder="Leave blank to keep current"></label>
+                <div class="admin-form-actions">
+                    <button type="button" class="admin-btn admin-btn-ghost" data-close-user-modal>Cancel</button>
+                    <button type="submit" class="admin-btn admin-btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="admin-config.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>

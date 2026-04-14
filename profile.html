@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - Badya Uni Events</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="profile-page-moodle">
+    <header class="profile-site-header">
+        <a href="index.html" class="profile-site-logo">Badya Uni Events</a>
+        <nav class="profile-site-nav">
+            <a href="index.html">Home</a>
+            <a href="index.html#events">Events</a>
+            <button type="button" class="profile-site-signout sign-out-btn">Sign out</button>
+        </nav>
+    </header>
+
+    <div class="moodle-profile-backdrop">
+        <div class="moodle-profile-shell">
+            <div class="moodle-profile-toolbar">
+                <button type="button" class="moodle-reset-btn" id="reset-layout-btn" title="Restore default layout">Reset page to default</button>
+            </div>
+
+            <div class="moodle-profile-hero">
+                <div class="moodle-avatar" id="profile-avatar" aria-hidden="true">
+                    <span id="profile-avatar-initials">?</span>
+                </div>
+                <div class="moodle-hero-main">
+                    <h1 class="moodle-profile-name" id="profile-display-name">—</h1>
+                    <button type="button" class="moodle-btn-message" id="btn-message" title="Send a message">
+                        <i class="fas fa-comment-dots" aria-hidden="true"></i>
+                        Message
+                    </button>
+                </div>
+            </div>
+
+            <div class="moodle-profile-grid">
+                <div class="moodle-col moodle-col-left">
+                    <article class="moodle-card">
+                        <div class="moodle-card-head">
+                            <h2 class="moodle-card-title">User details</h2>
+                            <a href="#" class="moodle-card-action" id="edit-profile-link">Edit profile</a>
+                        </div>
+                        <dl class="moodle-dl">
+                            <dt>Email address</dt>
+                            <dd>
+                                <span id="field-email">—</span>
+                                <p class="moodle-field-note">This address may be visible to event organizers when you book.</p>
+                            </dd>
+                            <dt>Country</dt>
+                            <dd id="field-country">Egypt</dd>
+                            <dt>City/town</dt>
+                            <dd id="field-city">Cairo</dd>
+                            <dt>Timezone</dt>
+                            <dd id="field-timezone">Africa/Cairo</dd>
+                        </dl>
+                    </article>
+
+                    <article class="moodle-card">
+                        <div class="moodle-card-head">
+                            <h2 class="moodle-card-title">Privacy and policies</h2>
+                            <a href="#" class="moodle-card-action">Data retention summary</a>
+                        </div>
+                        <p class="moodle-card-muted">Review how your data is used for event bookings and attendance.</p>
+                    </article>
+
+                    <article class="moodle-card" id="event-details">
+                        <div class="moodle-card-head">
+                            <h2 class="moodle-card-title">Event details</h2>
+                        </div>
+                        <h3 class="moodle-subheading">Registered events</h3>
+                        <ul class="moodle-course-list" id="registered-events-list">
+                            <li class="moodle-loading">Loading your events…</li>
+                        </ul>
+                    </article>
+                </div>
+
+                <div class="moodle-col moodle-col-right">
+                    <article class="moodle-card">
+                        <h2 class="moodle-card-title">Miscellaneous</h2>
+                        <ul class="moodle-link-list">
+                            <li><a href="index.html#events"><i class="fas fa-calendar-alt" aria-hidden="true"></i> Browse events</a></li>
+                            <li><a href="index.html#contact"><i class="fas fa-envelope" aria-hidden="true"></i> Contact</a></li>
+                            <li><a href="#event-details"><i class="fas fa-ticket-alt" aria-hidden="true"></i> My registrations</a></li>
+                        </ul>
+                    </article>
+
+                    <article class="moodle-card">
+                        <h2 class="moodle-card-title">Reports</h2>
+                        <ul class="moodle-link-list">
+                            <li><a href="#event-details"><i class="fas fa-list" aria-hidden="true"></i> Booking overview</a></li>
+                            <li><a href="index.html"><i class="fas fa-home" aria-hidden="true"></i> Site home</a></li>
+                        </ul>
+                    </article>
+
+                    <article class="moodle-card">
+                        <h2 class="moodle-card-title">Login activity</h2>
+                        <dl class="moodle-dl moodle-dl-compact">
+                            <dt>First access to site</dt>
+                            <dd id="first-access">—</dd>
+                            <dt>Last access to site</dt>
+                            <dd id="last-access">—</dd>
+                        </dl>
+                    </article>
+
+                    <article class="moodle-card moodle-card-qr">
+                        <h2 class="moodle-card-title">Profile QR code</h2>
+                        <h3 class="moodle-subheading">Opens this student's profile</h3>
+                        <p class="moodle-qr-intro">
+                            Scan this QR code to open the student's profile page directly.
+                        </p>
+                        <div class="moodle-qr-wrap">
+                            <img id="profile-link-qr-img" class="moodle-qr-image" alt="QR code that opens this profile" width="200" height="200" hidden>
+                            <p id="profile-link-qr-fallback" class="moodle-qr-fallback">Loading profile QR code…</p>
+                        </div>
+                    </article>
+
+                    <article class="moodle-card moodle-card-qr">
+                        <h2 class="moodle-card-title">Attendance QR code</h2>
+                        <h3 class="moodle-subheading">QR code for event attendance</h3>
+                        <p class="moodle-qr-intro">
+                            This code is unique to you and stays the same for every event. When you arrive, staff scan it to register your attendance.
+                            You must have a booking for that event; the scan links your identity to your ticket.
+                        </p>
+                        <div class="moodle-qr-wrap">
+                            <img id="student-qr-img" class="moodle-qr-image" alt="Your student attendance QR code" width="200" height="200" hidden>
+                            <p id="student-qr-fallback" class="moodle-qr-fallback">Loading your QR code…</p>
+                        </div>
+                        <p class="moodle-card-muted moodle-qr-hint">Tip: Screenshot or print this page for faster check-in at the venue.</p>
+                    </article>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000';
+
+        function qrImgUrlForText(text, size = 220) {
+            const qs = new URLSearchParams({
+                data: text,
+                size: `${size}x${size}`,
+                margin: '10'
+            });
+            return `https://api.qrserver.com/v1/create-qr-code/?${qs.toString()}`;
+        }
+
+        function initialsFromName(name) {
+            if (!name || !name.trim()) return '?';
+            const parts = name.trim().split(/\s+/).filter(Boolean);
+            if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+
+        function formatDateTime(d) {
+            try {
+                return new Date(d).toLocaleString(undefined, {
+                    dateStyle: 'medium',
+                    timeStyle: 'short'
+                });
+            } catch {
+                return '—';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const params = new URLSearchParams(window.location.search);
+            const viewedUserId = params.get('userId') || params.get('id');
+            const raw = localStorage.getItem('currentUser');
+            let user = raw ? JSON.parse(raw) : null;
+
+            const isScanView = !!viewedUserId && (!user || String(user.id) !== String(viewedUserId));
+            if (!user && !viewedUserId) {
+                window.location.href = 'index.html';
+                return;
+            }
+            if (user && user.role === 'admin' && !viewedUserId) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            if (isScanView) {
+                try {
+                    const res = await fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(viewedUserId)}`);
+                    if (!res.ok) throw new Error('not ok');
+                    user = await res.json();
+                } catch {
+                    window.location.href = 'index.html';
+                    return;
+                }
+            }
+
+            const listEl = document.getElementById('registered-events-list');
+            const qrImg = document.getElementById('student-qr-img');
+            const qrFallback = document.getElementById('student-qr-fallback');
+            const linkQrImg = document.getElementById('profile-link-qr-img');
+            const linkQrFallback = document.getElementById('profile-link-qr-fallback');
+
+            document.getElementById('profile-display-name').textContent = user.name || 'Student';
+            document.getElementById('profile-avatar-initials').textContent = initialsFromName(user.name);
+            document.getElementById('field-email').textContent = user.email || '—';
+
+            const signOutBtn = document.querySelector('.profile-site-signout');
+            if (isScanView && signOutBtn) {
+                signOutBtn.hidden = true;
+            }
+
+            const firstKey = 'siteFirstAccess';
+            const now = new Date().toISOString();
+            if (!localStorage.getItem(firstKey)) {
+                localStorage.setItem(firstKey, now);
+            }
+            document.getElementById('first-access').textContent = formatDateTime(localStorage.getItem(firstKey));
+            document.getElementById('last-access').textContent = formatDateTime(now);
+            localStorage.setItem('siteLastAccess', now);
+
+            if (user.id) {
+                try {
+                    const res = await fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(user.id)}`);
+                    if (res.ok) {
+                        const full = await res.json();
+                        user = { ...user, ...full };
+                        if (!isScanView) {
+                            localStorage.setItem('currentUser', JSON.stringify(user));
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Could not refresh profile from API', e);
+                }
+            }
+
+            if (user.id) {
+                const url = new URL(window.location.href);
+                url.searchParams.set('userId', user.id);
+                linkQrImg.src = qrImgUrlForText(url.toString(), 220);
+                linkQrImg.hidden = false;
+                linkQrFallback.hidden = true;
+            } else {
+                linkQrFallback.textContent = 'Profile QR code unavailable (missing user ID).';
+            }
+
+            if (user.qrImageBase64) {
+                qrImg.src = user.qrImageBase64;
+                qrImg.hidden = false;
+                qrFallback.hidden = true;
+            } else {
+                qrFallback.textContent = user.id
+                    ? 'Your QR code will appear after the server generates it. Try refreshing in a moment.'
+                    : 'Sign out and sign in again to load your attendance QR code.';
+            }
+
+            const email = encodeURIComponent(user.email || '');
+            if (email) {
+                try {
+                    const bRes = await fetch(`${API_BASE_URL}/api/events/bookings/student/${email}`);
+                    if (bRes.ok) {
+                        const bookings = await bRes.json();
+                        listEl.innerHTML = '';
+                        if (!bookings.length) {
+                            listEl.innerHTML = '<li class="moodle-empty">You are not registered for any events yet.</li>';
+                        } else {
+                            bookings.forEach((b, i) => {
+                                const ev = b.event || {};
+                                const title = ev.title || 'Event';
+                                const code = `EV ${String(ev.id != null ? ev.id : i + 1).padStart(3, '0')}`;
+                                const li = document.createElement('li');
+                                li.className = 'moodle-course-item';
+                                li.innerHTML = `<span class="moodle-course-code">${code}</span> — ${escapeHtml(title)}`;
+                                listEl.appendChild(li);
+                            });
+                        }
+                    } else {
+                        throw new Error('bookings failed');
+                    }
+                } catch {
+                    const local = JSON.parse(localStorage.getItem('bookings') || '[]')
+                        .filter(b => (b.studentEmail || '').toLowerCase() === (user.email || '').toLowerCase());
+                    listEl.innerHTML = '';
+                    if (!local.length) {
+                        listEl.innerHTML = '<li class="moodle-empty">No registrations found. Book an event from the home page.</li>';
+                    } else {
+                        local.forEach((b, i) => {
+                            const title = (b.event && b.event.title) || 'Event';
+                            const li = document.createElement('li');
+                            li.className = 'moodle-course-item';
+                            li.innerHTML = `<span class="moodle-course-code">EV ${String(i + 1).padStart(3, '0')}</span> — ${escapeHtml(title)}`;
+                            listEl.appendChild(li);
+                        });
+                    }
+                }
+            } else {
+                listEl.innerHTML = '<li class="moodle-empty">Add an email to your account to see events.</li>';
+            }
+
+            document.getElementById('btn-message').addEventListener('click', () => {
+                const em = user.email || '';
+                if (em) window.location.href = `mailto:${em}?subject=Badya%20Uni%20Events`;
+            });
+
+            document.getElementById('edit-profile-link').addEventListener('click', (e) => {
+                e.preventDefault();
+                alert('Profile editing will be available in a future update. For now, contact support to change your details.');
+            });
+
+            document.getElementById('reset-layout-btn').addEventListener('click', () => {
+                window.location.reload();
+            });
+
+            if (!isScanView) {
+                document.querySelector('.profile-site-signout').addEventListener('click', () => {
+                    localStorage.removeItem('currentUser');
+                    window.location.href = 'index.html';
+                });
+            }
+        });
+
+        function escapeHtml(text) {
+            const d = document.createElement('div');
+            d.textContent = text;
+            return d.innerHTML;
+        }
+    </script>
+</body>
+</html>
