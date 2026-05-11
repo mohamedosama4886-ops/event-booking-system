@@ -28,6 +28,20 @@
 
                 <button type="submit">Sign in</button>
             </form>
+            <hr style="margin: 14px 0; opacity: 0.3;">
+            <h2 style="font-size: 1rem; margin-bottom: 8px;">Register new admin</h2>
+            <form id="admin-register-form">
+                <label for="admin-register-name">Name</label>
+                <input type="text" id="admin-register-name" name="name" required autocomplete="name" placeholder="Admin Name">
+
+                <label for="admin-register-email">Email</label>
+                <input type="email" id="admin-register-email" name="email" required autocomplete="username" placeholder="admin@example.com">
+
+                <label for="admin-register-password">Password</label>
+                <input type="password" id="admin-register-password" name="password" required autocomplete="new-password" placeholder="At least 8 chars with uppercase, lowercase, number, special">
+
+                <button type="submit">Register admin</button>
+            </form>
             <a class="admin-back" href="index.html"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to public site</a>
         </div>
     </div>
@@ -43,6 +57,8 @@
             <button type="button" class="active" data-tab="events" role="tab" aria-selected="true">Events</button>
             <button type="button" data-tab="users" role="tab" aria-selected="false">Users</button>
             <button type="button" data-tab="bookings" role="tab" aria-selected="false">Bookings</button>
+            <button type="button" data-tab="scanner" role="tab" aria-selected="false">QR scanner</button>
+            <button type="button" data-tab="profile" role="tab" aria-selected="false">Profile</button>
         </nav>
         <main class="admin-main">
             <section id="tab-events" class="admin-tab-panel" role="tabpanel">
@@ -55,6 +71,7 @@
                         <thead>
                             <tr>
                                 <th>Title</th>
+                                <th>Remaining</th>
                                 <th>Date</th>
                                 <th>Venue</th>
                                 <th>Category</th>
@@ -107,6 +124,51 @@
                         <tbody id="bookings-table-body"></tbody>
                     </table>
                     <p id="bookings-empty" class="admin-empty" hidden>No bookings.</p>
+                </div>
+            </section>
+            <section id="tab-scanner" class="admin-tab-panel" hidden role="tabpanel">
+                <div class="admin-toolbar">
+                    <h2>Attendee QR code scanner</h2>
+                </div>
+                <div class="admin-form-grid" style="max-width: 760px;">
+                    <label>Event to check in
+                        <select id="scanner-event-select" required>
+                            <option value="">Select event...</option>
+                        </select>
+                    </label>
+                    <div class="admin-form-actions" style="justify-content: flex-start;">
+                        <button type="button" class="admin-btn admin-btn-primary" id="btn-start-scanner">Start camera scanner</button>
+                        <button type="button" class="admin-btn admin-btn-ghost" id="btn-stop-scanner">Stop scanner</button>
+                    </div>
+                    <video id="scanner-video" playsinline autoplay muted style="width:100%;max-width:520px;border-radius:10px;background:#111;" hidden></video>
+                    <div id="scanner-status" class="admin-empty">Scanner is idle.</div>
+                    <label>Manual token (optional)
+                        <input type="text" id="scanner-manual-token" placeholder="Paste token or full /attendance/scan?token=... URL text">
+                    </label>
+                    <button type="button" class="admin-btn admin-btn-primary" id="btn-manual-scan">Submit token</button>
+                    <div id="scanner-last-result" class="admin-empty" hidden></div>
+                </div>
+            </section>
+            <section id="tab-profile" class="admin-tab-panel" hidden role="tabpanel">
+                <div class="admin-toolbar">
+                    <h2>Admin profile</h2>
+                </div>
+                <div class="admin-table-wrap">
+                    <p><strong>Name:</strong> <span id="profile-name">—</span></p>
+                    <p><strong>Email:</strong> <span id="profile-email">—</span></p>
+                    <h3 style="margin-top:14px;">Created and approved events</h3>
+                    <table class="admin-table" aria-label="Created events">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Date</th>
+                                <th>Venue</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="created-events-table-body"></tbody>
+                    </table>
+                    <p id="created-events-empty" class="admin-empty" hidden>No created events yet.</p>
                 </div>
             </section>
         </main>

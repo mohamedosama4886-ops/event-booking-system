@@ -1,5 +1,11 @@
 (function () {
     const SESSION_KEY = 'badyaAdminSession';
+    let scannerStream = null;
+    let scannerLoopHandle = null;
+    let scannerActive = false;
+    let scannerDetector = null;
+    let lastScannedToken = '';
+    let lastScannedAtMs = 0;
 
     function apiBase() {
         return (window.ADMIN_CONFIG && window.ADMIN_CONFIG.API_BASE_URL) || 'http://localhost:5000';
@@ -137,6 +143,17 @@
         return data;
     }
 
+    async function registerRequest(name, email, password) {
+        const res = await fetch(`${apiBase()}/api/admin`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email, password })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || 'Registration failed');
+        return data;
+    }
+
     async function loadEvents() {
         if (!requireSession()) return;
         try {
@@ -144,6 +161,8 @@
             const data = await res.json();
             window.__adminEvents = Array.isArray(data) ? data : [];
             renderEvents();
+            renderCreatedEvents();
+            populateScannerEventSelect();
         } catch {
             toast('Failed to load events', 'error');
         }
@@ -152,30 +171,85 @@
     function renderEvents() {
         const tbody = el('events-table-body');
         const list = window.__adminEvents || [];
+        const s = getSession();
         tbody.innerHTML = '';
         el('events-empty').hidden = list.length > 0;
         list.forEach(ev => {
             const id = eventId(ev);
+            const remaining = ev.ticketsAvailable != null ? Math.max(0, Number(ev.ticketsAvailable) || 0) : '—';
+            const canEdit = s && ev.createdByAdminId != null && String(ev.createdByAdminId) === String(s.id);
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${escapeHtml(ev.title)}</td>
+                <td>${escapeHtml(remaining)}</td>
                 <td>${fmtDate(ev.date)}</td>
                 <td>${escapeHtml(ev.venue)}</td>
                 <td>${escapeHtml(ev.category)}</td>
                 <td>
-                    <button type="button" class="admin-btn admin-btn-sm admin-btn-primary" data-action="edit-event" data-id="${id}">Edit</button>
-                    <button type="button" class="admin-btn admin-btn-sm admin-btn-danger" data-action="delete-event" data-id="${id}">Remove</button>
+                    <button type="button" class="admin-btn admin-btn-sm admin-btn-primary" data-action="edit-event" data-id="${id}" ${canEdit ? '' : 'disabled title="Only event owner can edit"'}>Edit</button>
+                    <button type="button" class="admin-btn admin-btn-sm admin-btn-danger" data-action="delete-event" data-id="${id}" ${canEdit ? '' : 'disabled title="Only event owner can remove"'}>Remove</button>
                 </td>
             `;
             tbody.appendChild(tr);
         });
     }
 
+    function renderCreatedEvents() {
+        const s = getSession();
+        const tbody = el('created-events-table-body');
+        if (!tbody) return;
+        const list = (window.__adminEvents || []).filter(
+            ev => s && ev.createdByAdminId != null && String(ev.createdByAdminId) === String(s.id)
+        );
+        tbody.innerHTML = '';
+        el('created-events-empty').hidden = list.length > 0;
+        list.forEach(ev => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${escapeHtml(ev.title)}</td>
+                <td>${fmtDate(ev.date)}</td>
+                <td>${escapeHtml(ev.venue)}</td>
+                <td>Approved</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function populateProfile() {
+        const s = getSession();
+        if (!s) return;
+        const nameEl = el('profile-name');
+        const emailEl = el('profile-email');
+        if (nameEl) nameEl.textContent = s.name || '—';
+        if (emailEl) emailEl.textContent = s.email || '—';
+    }
+
+    function populateScannerEventSelect() {
+        const sel = el('scanner-event-select');
+        if (!sel) return;
+        const s = getSession();
+        const created = (window.__adminEvents || []).filter(
+            ev => s && ev.createdByAdminId != null && String(ev.createdByAdminId) === String(s.id)
+        );
+        sel.innerHTML = '<option value="">Select event...</option>';
+        created.forEach(ev => {
+            const id = eventId(ev);
+            const opt = document.createElement('option');
+            opt.value = String(id);
+            opt.textContent = `${ev.title} (${dateInputValue(ev.date) || 'no date'})`;
+            sel.appendChild(opt);
+        });
+    }
+
     async function deleteEventById(id) {
-        if (!requireSession()) return;
+        const s = requireSession();
+        if (!s) return;
         if (!confirm('Delete this event? Related bookings will be removed.')) return;
         try {
-            const res = await fetch(`${apiBase()}/api/admin/events/${id}`, { method: 'DELETE' });
+            const res = await fetch(`${apiBase()}/api/admin/events/${id}`, {
+                method: 'DELETE',
+                headers: { 'X-Admin-Id': String(s.id) }
+            });
             if (!res.ok) throw new Error('Delete failed');
             toast('Event removed');
             await loadEvents();
@@ -207,7 +281,8 @@
 
     async function saveEvent(e) {
         e.preventDefault();
-        if (!requireSession()) return;
+        const s = requireSession();
+        if (!s) return;
         const id = el('ev-id').value.trim();
         const body = {
             title: el('ev-title').value.trim(),
@@ -229,7 +304,7 @@
         try {
             const res = await fetch(url, {
                 method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-Admin-Id': String(s.id) },
                 body: JSON.stringify(body)
             });
             if (!res.ok) {
@@ -372,6 +447,123 @@
     async function refreshAll() {
         if (!requireSession()) return;
         await Promise.all([loadEvents(), loadUsers(), loadBookings()]);
+        populateProfile();
+    }
+
+    function parseTokenFromQrText(rawText) {
+        if (!rawText) return null;
+        const t = String(rawText).trim();
+        const directMatch = t.match(/(?:^|[?&])token=([^&\s]+)/);
+        if (directMatch) {
+            try {
+                return decodeURIComponent(directMatch[1]);
+            } catch {
+                return directMatch[1];
+            }
+        }
+        return t;
+    }
+
+    async function submitAttendanceToken(rawToken) {
+        const s = requireSession();
+        if (!s) return;
+        const eventId = el('scanner-event-select')?.value;
+        if (!eventId) {
+            toast('Select an event first', 'error');
+            return;
+        }
+        const token = parseTokenFromQrText(rawToken);
+        if (!token) {
+            toast('No token found in QR content', 'error');
+            return;
+        }
+        const now = Date.now();
+        if (token === lastScannedToken && now - lastScannedAtMs < 5000) {
+            return;
+        }
+        lastScannedToken = token;
+        lastScannedAtMs = now;
+        try {
+            const res = await fetch(
+                `${apiBase()}/api/attendance/scan?token=${encodeURIComponent(token)}&eventId=${encodeURIComponent(eventId)}`,
+                { method: 'POST' }
+            );
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.message || 'Attendance scan failed');
+            const msg = `${data.message || 'Scanned'}: ${data.studentName || ''} (${data.studentEmail || ''})`;
+            const out = el('scanner-last-result');
+            if (out) {
+                out.textContent = msg;
+                out.hidden = false;
+            }
+            toast(msg);
+        } catch (err) {
+            toast(err.message || 'Attendance scan failed', 'error');
+        }
+    }
+
+    async function startQrScanner() {
+        if (scannerActive) return;
+        if (!navigator.mediaDevices?.getUserMedia) {
+            toast('Camera is not supported in this browser', 'error');
+            return;
+        }
+        const status = el('scanner-status');
+        const video = el('scanner-video');
+        try {
+            scannerStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: 'environment' } },
+                audio: false
+            });
+            video.srcObject = scannerStream;
+            video.hidden = false;
+            scannerDetector =
+                'BarcodeDetector' in window
+                    ? new window.BarcodeDetector({ formats: ['qr_code'] })
+                    : null;
+            scannerActive = true;
+            if (status) status.textContent = scannerDetector ? 'Scanner running. Point camera at attendee QR.' : 'Camera running. QR auto-detection is not available here.';
+
+            if (!scannerDetector) return;
+            const detectLoop = async () => {
+                if (!scannerActive) return;
+                try {
+                    const detected = await scannerDetector.detect(video);
+                    if (detected && detected.length > 0) {
+                        const raw = detected[0].rawValue;
+                        if (raw) {
+                            await submitAttendanceToken(raw);
+                        }
+                    }
+                } catch {
+                    // Ignore frame read errors while camera warms up.
+                }
+                scannerLoopHandle = setTimeout(detectLoop, 900);
+            };
+            detectLoop();
+        } catch {
+            toast('Could not access camera', 'error');
+            if (status) status.textContent = 'Failed to access camera.';
+        }
+    }
+
+    function stopQrScanner() {
+        scannerActive = false;
+        if (scannerLoopHandle) {
+            clearTimeout(scannerLoopHandle);
+            scannerLoopHandle = null;
+        }
+        if (scannerStream) {
+            scannerStream.getTracks().forEach(t => t.stop());
+            scannerStream = null;
+        }
+        const video = el('scanner-video');
+        if (video) {
+            video.hidden = true;
+            video.srcObject = null;
+        }
+        const status = el('scanner-status');
+        if (status) status.textContent = 'Scanner is idle.';
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -400,7 +592,27 @@
             }
         });
 
+        el('admin-register-form')?.addEventListener('submit', async e => {
+            e.preventDefault();
+            el('login-error').textContent = '';
+            const name = el('admin-register-name').value.trim();
+            const email = el('admin-register-email').value.trim();
+            const password = el('admin-register-password').value;
+            try {
+                const data = await registerRequest(name, email, password);
+                const session = { id: data.id, name: data.name, email: data.email, role: 'admin' };
+                setSession(session);
+                showApp(session);
+                await refreshAll();
+                toast('Admin account created and signed in');
+                el('admin-register-password').value = '';
+            } catch (err) {
+                el('login-error').textContent = err.message || 'Registration failed';
+            }
+        });
+
         el('admin-logout').addEventListener('click', () => {
+            stopQrScanner();
             clearSession();
             showLogin();
             toast('Signed out');
@@ -422,6 +634,16 @@
         el('btn-add-event').addEventListener('click', () => openEventModal(false));
         el('btn-refresh-users').addEventListener('click', loadUsers);
         el('btn-refresh-bookings').addEventListener('click', loadBookings);
+        el('btn-start-scanner')?.addEventListener('click', startQrScanner);
+        el('btn-stop-scanner')?.addEventListener('click', stopQrScanner);
+        el('btn-manual-scan')?.addEventListener('click', async () => {
+            const raw = el('scanner-manual-token').value.trim();
+            if (!raw) {
+                toast('Enter token first', 'error');
+                return;
+            }
+            await submitAttendanceToken(raw);
+        });
 
         el('event-form').addEventListener('submit', saveEvent);
 
