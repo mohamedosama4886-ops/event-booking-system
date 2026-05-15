@@ -15,9 +15,17 @@ CREATE TABLE IF NOT EXISTS users (
   id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   name         VARCHAR(100)    NOT NULL,
   email        VARCHAR(255)    NOT NULL,
+  username     VARCHAR(100)    NULL,
   password     VARCHAR(255)    NOT NULL,
+  role         VARCHAR(20)     NULL DEFAULT 'USER',
   created_at   DATETIME        NULL,
   updated_at   DATETIME        NULL,
+  phone        VARCHAR(20)     NULL,
+  faculty      VARCHAR(100)    NULL,
+  profile_qr_path VARCHAR(255) NULL,
+  attendance_qr_path VARCHAR(255) NULL,
+  attendance_token VARCHAR(255) NULL,
+  token_expiry DATETIME NULL,
   qr_token     VARCHAR(64)     NULL,
   qr_image_base64 LONGTEXT     NULL,
   PRIMARY KEY (id),
@@ -63,9 +71,15 @@ CREATE TABLE IF NOT EXISTS events (
   image          VARCHAR(500)    NULL,
   organizer      VARCHAR(255)    NOT NULL,
   contact_email  VARCHAR(255)    NOT NULL,
+  target_faculties TEXT          NULL,
+  created_by_admin_id BIGINT UNSIGNED NULL,
   PRIMARY KEY (id),
   KEY idx_events_date (date),
-  KEY idx_events_category (category)
+  KEY idx_events_category (category),
+  KEY idx_events_created_by_admin (created_by_admin_id),
+  CONSTRAINT fk_events_created_by_admin
+    FOREIGN KEY (created_by_admin_id) REFERENCES admins(id)
+    ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =========================
@@ -108,12 +122,47 @@ CREATE TABLE IF NOT EXISTS event_attendance (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =========================
+-- ATTENDANCE TOKENS (temporary secure tokens for QR scanning)
+-- =========================
+CREATE TABLE IF NOT EXISTS attendance_tokens (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id     BIGINT UNSIGNED NOT NULL,
+  token_hash  CHAR(64)        NOT NULL,
+  expires_at  DATETIME        NOT NULL,
+  used_at     DATETIME        NULL,
+  created_at  DATETIME        NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_attendance_tokens_hash (token_hash),
+  KEY idx_attendance_tokens_user (user_id),
+  KEY idx_attendance_tokens_expires (expires_at),
+  CONSTRAINT fk_attendance_tokens_user
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- =========================
+-- NOTIFICATIONS TABLE
+-- =========================
+CREATE TABLE IF NOT EXISTS notifications (
+  id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  student_id       BIGINT UNSIGNED NOT NULL,
+  event_id         BIGINT UNSIGNED NOT NULL,
+  phone            VARCHAR(20)     NOT NULL,
+  message          TEXT            NOT NULL,
+  status           VARCHAR(20)     NOT NULL DEFAULT 'PENDING' COMMENT 'SENT, FAILED, PENDING',
+  failure_reason   TEXT            NULL,
+  created_at       DATETIME        NOT NULL,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_notif_student FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_notif_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- =========================
 -- SAMPLE DATA
 -- =========================
 
 -- Default Admin Account
 INSERT INTO admins (name, email, password, created_at, updated_at)
-VALUES ('Super Admin', 'admin@badyauniversity.com', 'admin123', NOW(), NOW())
+VALUES ('Admin', 'admin@gmail.com', '0000', NOW(), NOW())
 ON DUPLICATE KEY UPDATE name=name;
 
 -- Sample Events (Optional - can be added via admin panel)

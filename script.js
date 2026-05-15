@@ -440,8 +440,12 @@ function displayEvents(eventsToDisplay) {
                 ? `<p class="event-tickets-left sold-out"><i class="fas fa-ban"></i> Sold out</p>`
                 : `<p class="event-tickets-left"><i class="fas fa-ticket-alt"></i> ${left} ticket${left === 1 ? '' : 's'} left</p>`;
 
+        const mediaHtml = event.image && (event.image.endsWith('.mp4') || event.image.endsWith('.webm') || event.image.endsWith('.ogg'))
+            ? `<video src="${event.image}" class="event-image" autoplay muted loop playsinline style="width:100%; height:200px; object-fit:cover;"></video>`
+            : `<img src="${event.image || 'https://images.unsplash.com/photo-1540575467063-178a50c2e87c'}" alt="${event.title}" class="event-image">`;
+
         eventCard.innerHTML = `
-            <img src="${event.image || 'https://images.unsplash.com/photo-1540575467063-178a50c2e87c'}" alt="${event.title}">
+            ${mediaHtml}
             <div class="event-info">
                 <h3>${event.title}</h3>
                 <p class="event-date"><i class="fas fa-calendar"></i> ${formatDate(event.date)} at ${formatTime(event.time)}</p>
@@ -791,9 +795,13 @@ window.openEventModal = function(eventId) {
         : `<button type="button" class="book-now-btn" data-action="open-booking">Book Now</button>`;
 
     const eventDetails = document.getElementById('event-details');
+    const mediaHtml = currentEvent.image && (currentEvent.image.endsWith('.mp4') || currentEvent.image.endsWith('.webm') || currentEvent.image.endsWith('.ogg'))
+        ? `<video src="${currentEvent.image}" style="width:100%; max-height:400px; border-radius:10px; margin-bottom:20px;" controls autoplay muted loop></video>`
+        : `<img src="${currentEvent.image || 'https://images.unsplash.com/photo-1540575467063-178a50c2e87c'}" alt="${currentEvent.title}" style="width:100%; max-height:400px; border-radius:10px; object-fit:cover; margin-bottom:20px;">`;
+
     eventDetails.innerHTML = `
         <div class="event-detail-header">
-            <img src="${currentEvent.image || 'https://images.unsplash.com/photo-1540575467063-178a50c2e87c'}" alt="${currentEvent.title}">
+            ${mediaHtml}
             <div class="event-detail-info">
                 <h2>${currentEvent.title}</h2>
                 <p class="event-category">${currentEvent.category ? currentEvent.category.charAt(0).toUpperCase() + currentEvent.category.slice(1) : ''}</p>
@@ -1101,6 +1109,8 @@ async function handleSignUp(e) {
     const name = document.getElementById('signup-name').value;
     const email = document.getElementById('signup-email').value;
     const password = document.getElementById('signup-password').value;
+    const phone = document.getElementById('signup-phone').value;
+    const faculty = document.getElementById('signup-faculty').value;
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/users`, {
@@ -1108,7 +1118,7 @@ async function handleSignUp(e) {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ name, email, password })
+            body: JSON.stringify({ name, email, password, phone, faculty })
         });
 
         if (response.ok) {
@@ -1183,32 +1193,7 @@ async function handleAdminSignUp(e) {
     const email = document.getElementById('admin-signup-email').value.trim().toLowerCase();
     const password = document.getElementById('admin-signup-password').value;
 
-    // Basic client-side validation
-    if (!name || name.length < 2) {
-        showNotification('Name must be at least 2 characters long.', 'error');
-        return;
-    }
 
-    if (!email || !email.includes('@')) {
-        showNotification('Please enter a valid email address.', 'error');
-        return;
-    }
-
-    if (!password || password.length < 8) {
-        showNotification('Password must be at least 8 characters long.', 'error');
-        return;
-    }
-
-    // Check password strength
-    const hasUpperCase = /[A-Z]/.test(password);
-    const hasLowerCase = /[a-z]/.test(password);
-    const hasDigit = /[0-9]/.test(password);
-    const hasSpecialChar = /[@$!%*?&]/.test(password);
-
-    if (!hasUpperCase || !hasLowerCase || !hasDigit || !hasSpecialChar) {
-        showNotification('Password must contain uppercase, lowercase, number, and special character (@$!%*?&).', 'error');
-        return;
-    }
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/admin`, {
@@ -1236,25 +1221,57 @@ async function handleAdminSignUp(e) {
             const errorData = await response.json().catch(() => ({}));
             let errorMessage = 'Admin sign up failed.';
             
-            if (errorData.message) {
-                errorMessage = errorData.message;
-            } else if (errorData.errors) {
+            if (errorData.errors) {
                 // Handle validation errors
                 const errorMessages = Object.values(errorData.errors).join(', ');
                 errorMessage = errorMessages || errorMessage;
+            } else if (errorData.message) {
+                errorMessage = errorData.message;
             }
             
             showNotification(errorMessage, 'error');
         }
     } catch (error) {
         console.error('Admin sign up error:', error);
-        showNotification('Admin sign up failed. Please try again.', 'error');
+        showNotification('Cannot connect to backend at http://localhost:5000. Start backend first.', 'error');
     }
 }
 
 // Handle add event (Admin only)
 async function handleAddEvent(e) {
     e.preventDefault();
+    
+    const fileInput = document.getElementById('event-file-upload');
+    let imageUrl = '';
+
+    // Step 1: Upload file if selected
+    if (fileInput && fileInput.files.length > 0) {
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        
+        showNotification('Uploading media...', 'info');
+        try {
+            const uploadResponse = await fetch(`${API_BASE_URL}/api/upload`, {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (uploadResponse.ok) {
+                const uploadData = await uploadResponse.json();
+                imageUrl = uploadData.url;
+            } else {
+                showNotification('Media upload failed. Using default image.', 'error');
+            }
+        } catch (uploadError) {
+            console.error('Upload error:', uploadError);
+            showNotification('Media upload failed. Using default image.', 'error');
+        }
+    }
+
+    const selectedFaculties = Array.from(document.querySelectorAll('.target-faculty:checked'))
+        .map(cb => cb.value)
+        .join(',');
+
     const eventData = {
         title: document.getElementById('event-title').value,
         description: document.getElementById('event-description').value,
@@ -1264,9 +1281,10 @@ async function handleAddEvent(e) {
         venue: document.getElementById('event-venue').value,
         capacity: parseInt(document.getElementById('event-capacity').value),
         price: parseFloat(document.getElementById('event-price').value),
-        image: document.getElementById('event-image').value || 'https://images.unsplash.com/photo-1540575467063-178a50c2e87c',
+        image: imageUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2e87c',
         organizer: document.getElementById('event-organizer').value,
-        contactEmail: document.getElementById('event-contact-email').value
+        contactEmail: document.getElementById('event-contact-email').value,
+        targetFaculties: selectedFaculties || 'All'
     };
 
     try {

@@ -19,11 +19,15 @@ public class UserService {
     
     private final UserRepository userRepository;
     private final QrCodeService qrCodeService;
+    private final org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder passwordEncoder;
     
     @Autowired
-    public UserService(UserRepository userRepository, QrCodeService qrCodeService) {
+    public UserService(UserRepository userRepository, 
+                       QrCodeService qrCodeService,
+                       org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.qrCodeService = qrCodeService;
+        this.passwordEncoder = passwordEncoder;
     }
     
     /**
@@ -35,6 +39,9 @@ public class UserService {
     public User createUser(User user) {
         if (userRepository.existsByEmail(user.getEmail())) {
             throw new RuntimeException("User with email " + user.getEmail() + " already exists");
+        }
+        if (user.getPassword() != null && !user.getPassword().isBlank()) {
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
         }
         assignQrCodeIfMissing(user);
         return userRepository.save(user);
@@ -99,8 +106,10 @@ public class UserService {
         
         existingUser.setName(user.getName());
         existingUser.setEmail(user.getEmail());
+        existingUser.setPhone(user.getPhone());
+        existingUser.setFaculty(user.getFaculty());
         if (user.getPassword() != null && !user.getPassword().isEmpty()) {
-            existingUser.setPassword(user.getPassword());
+            existingUser.setPassword(passwordEncoder.encode(user.getPassword()));
         }
         assignQrCodeIfMissing(existingUser);
         
@@ -120,7 +129,7 @@ public class UserService {
             existingUser.setEmail(email.trim().toLowerCase());
         }
         if (newPassword != null && !newPassword.isBlank()) {
-            existingUser.setPassword(newPassword);
+            existingUser.setPassword(passwordEncoder.encode(newPassword));
         }
         assignQrCodeIfMissing(existingUser);
         return userRepository.save(existingUser);
@@ -149,7 +158,15 @@ public class UserService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Invalid email or password"));
         
-        if (!user.getPassword().equals(password)) {
+        String stored = user.getPassword() == null ? "" : user.getPassword();
+        boolean ok;
+        if (stored.startsWith("$2a$") || stored.startsWith("$2b$") || stored.startsWith("$2y$")) {
+            ok = passwordEncoder.matches(password, stored);
+        } else {
+            ok = stored.equals(password); // Support legacy plaintext
+        }
+
+        if (!ok) {
             throw new RuntimeException("Invalid email or password");
         }
         

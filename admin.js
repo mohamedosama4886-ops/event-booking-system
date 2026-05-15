@@ -186,8 +186,8 @@
                 <td>${escapeHtml(ev.venue)}</td>
                 <td>${escapeHtml(ev.category)}</td>
                 <td>
-                    <button type="button" class="admin-btn admin-btn-sm admin-btn-primary" data-action="edit-event" data-id="${id}" ${canEdit ? '' : 'disabled title="Only event owner can edit"'}>Edit</button>
-                    <button type="button" class="admin-btn admin-btn-sm admin-btn-danger" data-action="delete-event" data-id="${id}" ${canEdit ? '' : 'disabled title="Only event owner can remove"'}>Remove</button>
+                    <button type="button" class="admin-btn admin-btn-sm admin-btn-primary" data-action="edit-event" data-id="${id}">Edit</button>
+                    <button type="button" class="admin-btn admin-btn-sm admin-btn-danger" data-action="delete-event" data-id="${id}">Remove</button>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -247,8 +247,7 @@
         if (!confirm('Delete this event? Related bookings will be removed.')) return;
         try {
             const res = await fetch(`${apiBase()}/api/admin/events/${id}`, {
-                method: 'DELETE',
-                headers: { 'X-Admin-Id': String(s.id) }
+                method: 'DELETE'
             });
             if (!res.ok) throw new Error('Delete failed');
             toast('Event removed');
@@ -273,6 +272,13 @@
         el('ev-image').value = ev?.image || '';
         el('ev-organizer').value = ev?.organizer || '';
         el('ev-contact-email').value = ev?.contactEmail || '';
+        
+        // Handle target faculties checkboxes
+        const targetStr = ev?.targetFaculties || '';
+        const faculties = targetStr.split(',');
+        document.querySelectorAll('.target-faculty').forEach(cb => {
+            cb.checked = faculties.includes(cb.value);
+        });
     }
 
     function closeEventModal() {
@@ -284,6 +290,34 @@
         const s = requireSession();
         if (!s) return;
         const id = el('ev-id').value.trim();
+        
+        const fileInput = el('ev-file-upload');
+        let imageUrl = el('ev-image').value.trim();
+
+        // Step 1: Upload file if selected
+        if (fileInput && fileInput.files.length > 0) {
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            
+            toast('Uploading media...', 'info');
+            try {
+                const uploadResponse = await fetch(`${apiBase()}/api/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (uploadResponse.ok) {
+                    const uploadData = await uploadResponse.json();
+                    imageUrl = uploadData.url;
+                } else {
+                    toast('Media upload failed. Using existing/default image.', 'error');
+                }
+            } catch (uploadError) {
+                console.error('Upload error:', uploadError);
+                toast('Media upload failed.', 'error');
+            }
+        }
+
         const body = {
             title: el('ev-title').value.trim(),
             description: el('ev-description').value.trim(),
@@ -293,18 +327,17 @@
             venue: el('ev-venue').value.trim(),
             capacity: parseInt(el('ev-capacity').value, 10),
             price: parseFloat(el('ev-price').value),
-            image:
-                el('ev-image').value.trim() ||
-                'https://images.unsplash.com/photo-1540575467063-178a50c2e87c',
+            image: imageUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2e87c',
             organizer: el('ev-organizer').value.trim(),
-            contactEmail: el('ev-contact-email').value.trim()
+            contactEmail: el('ev-contact-email').value.trim(),
+            targetFaculties: Array.from(document.querySelectorAll('.target-faculty:checked')).map(cb => cb.value).join(',') || 'All'
         };
         const url = id ? `${apiBase()}/api/admin/events/${id}` : `${apiBase()}/api/admin/events`;
         const method = id ? 'PUT' : 'POST';
         try {
             const res = await fetch(url, {
                 method,
-                headers: { 'Content-Type': 'application/json', 'X-Admin-Id': String(s.id) },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
             if (!res.ok) {
@@ -313,6 +346,8 @@
             }
             toast(id ? 'Event updated' : 'Event created');
             closeEventModal();
+            // Clear file input
+            if (fileInput) fileInput.value = '';
             await loadEvents();
         } catch (err) {
             toast(err.message || 'Could not save event', 'error');
@@ -596,7 +631,7 @@
             e.preventDefault();
             el('login-error').textContent = '';
             const name = el('admin-register-name').value.trim();
-            const email = el('admin-register-email').value.trim();
+            const email = el('admin-register-email').value.trim().toLowerCase();
             const password = el('admin-register-password').value;
             try {
                 const data = await registerRequest(name, email, password);
@@ -607,7 +642,20 @@
                 toast('Admin account created and signed in');
                 el('admin-register-password').value = '';
             } catch (err) {
-                el('login-error').textContent = err.message || 'Registration failed';
+                const msg = err.message || 'Registration failed';
+                if (String(msg).toLowerCase().includes('already exists')) {
+                    try {
+                        const data = await loginRequest(email, password);
+                        setSession({ ...data, role: 'admin' });
+                        showApp(data);
+                        await refreshAll();
+                        toast('Signed in');
+                        return;
+                    } catch {
+                        // Fall through to generic message.
+                    }
+                }
+                el('login-error').textContent = `${msg}. If backend is down, start server on ${apiBase()}`;
             }
         });
 

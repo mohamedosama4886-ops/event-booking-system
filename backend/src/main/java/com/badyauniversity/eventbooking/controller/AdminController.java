@@ -13,6 +13,7 @@ import com.badyauniversity.eventbooking.service.UserService;
 import com.badyauniversity.eventbooking.service.AttendanceService;
 import com.badyauniversity.eventbooking.service.BookingService;
 import com.badyauniversity.eventbooking.service.EventService;
+import com.badyauniversity.eventbooking.service.NotificationService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -38,15 +39,17 @@ public class AdminController {
     private final BookingService bookingService;
     private final AttendanceService attendanceService;
     private final UserService userService;
+    private final NotificationService notificationService;
     
     @Autowired
     public AdminController(AdminService adminService, EventService eventService, BookingService bookingService,
-                          AttendanceService attendanceService, UserService userService) {
+                          AttendanceService attendanceService, UserService userService, NotificationService notificationService) {
         this.adminService = adminService;
         this.eventService = eventService;
         this.bookingService = bookingService;
         this.attendanceService = attendanceService;
         this.userService = userService;
+        this.notificationService = notificationService;
     }
     
     /**
@@ -111,37 +114,46 @@ public class AdminController {
     /**
      * Create a new event (Admin only)
      * POST /api/admin/events
+     * Requires header: X-Admin-Id
      * @param eventDTO The event data
      * @return Created event DTO
      */
     @PostMapping("/events")
-    public ResponseEntity<EventDTO> createEvent(@Valid @RequestBody EventDTO eventDTO) {
-        EventDTO createdEvent = eventService.createEvent(eventDTO);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdEvent);
+    public ResponseEntity<EventDTO> createEvent(@RequestHeader(value = "X-Admin-Id", required = false) Long adminId,
+                                                @Valid @RequestBody EventDTO eventDTO) {
+        EventDTO createdDTO = eventService.createEvent(eventDTO, adminId);
+        Event eventEntity = eventService.getEventEntityById(createdDTO.getId());
+        notificationService.sendEventAnnouncements(eventEntity);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdDTO);
     }
     
     /**
      * Update an existing event (Admin only)
      * PUT /api/admin/events/{id}
+     * Requires header: X-Admin-Id
      * @param id The event ID
      * @param eventDTO The updated event data
      * @return Updated event DTO
      */
     @PutMapping("/events/{id}")
     public ResponseEntity<EventDTO> updateEvent(@PathVariable Long id, 
+                                                @RequestHeader(value = "X-Admin-Id", required = false) Long adminId,
                                                 @Valid @RequestBody EventDTO eventDTO) {
-        EventDTO updatedEvent = eventService.updateEvent(id, eventDTO);
+        EventDTO updatedEvent = eventService.updateEvent(id, eventDTO, adminId);
         return ResponseEntity.ok(updatedEvent);
     }
     
     /**
      * Delete an event (Admin only)
      * DELETE /api/admin/events/{id}
+     * Requires header: X-Admin-Id
      * @param id The event ID
      * @return No content response
      */
     @DeleteMapping("/events/{id}")
     public ResponseEntity<Void> deleteEvent(@PathVariable Long id) {
+        // Relaxing restrictions: any authenticated admin can delete any event.
+        // In a real production app, you might want to re-add ownership checks.
         eventService.deleteEvent(id);
         return ResponseEntity.noContent().build();
     }

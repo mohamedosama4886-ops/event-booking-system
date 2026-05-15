@@ -27,6 +27,11 @@ public class EventDTO {
     private String organizer;
     private String contactEmail;
     
+    private String targetFaculties;
+
+    /** Admin owner who created the event (used to enforce "edit your own events"). */
+    private Long createdByAdminId;
+    
     // Constructors
     public EventDTO() {
     }
@@ -151,6 +156,22 @@ public class EventDTO {
     
     public void setContactEmail(String contactEmail) {
         this.contactEmail = contactEmail;
+    }
+
+    public String getTargetFaculties() {
+        return targetFaculties;
+    }
+
+    public void setTargetFaculties(String targetFaculties) {
+        this.targetFaculties = targetFaculties;
+    }
+
+    public Long getCreatedByAdminId() {
+        return createdByAdminId;
+    }
+
+    public void setCreatedByAdminId(Long createdByAdminId) {
+        this.createdByAdminId = createdByAdminId;
     }
 }
 

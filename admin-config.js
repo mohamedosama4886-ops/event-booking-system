@@ -1,7 +1,9 @@
 /**
  * Admin panel settings (edit as needed).
- * Login email/password are defined on the server in application.properties (app.admin.email, app.admin.password)
- * for the first admin account, or use any account you created via POST /api/admin with a strong password.
+ * Admin credentials are fixed in backend configuration.
+ * Use:
+ *   email: admin@gmail.com
+ *   password: 0000
  */
 window.ADMIN_CONFIG = {
     API_BASE_URL: 'http://localhost:5000',

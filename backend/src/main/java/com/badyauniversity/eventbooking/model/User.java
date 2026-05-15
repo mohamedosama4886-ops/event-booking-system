@@ -31,12 +31,18 @@ public class User {
     private String username;
     
     @NotBlank(message = "Password is required")
-    @Size(min = 6, message = "Password must be at least 6 characters")
+    @Size(min = 4, message = "Password must be at least 4 characters")
     @Column(nullable = false)
     private String password;
     
     @Column(length = 20)
     private String role;
+    
+    @Column(length = 20)
+    private String phone;
+    
+    @Column(length = 100)
+    private String faculty;
     
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -54,6 +60,21 @@ public class User {
     @Column(name = "qr_image_base64")
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String qrImageBase64;
+
+    // --- File-based QR system (saved under uploads/qr/) ---
+    @Column(name = "profile_qr_path")
+    private String profileQrPath;
+
+    @Column(name = "attendance_qr_path")
+    private String attendanceQrPath;
+
+    @Column(name = "attendance_token")
+    @JsonIgnore
+    private String attendanceToken;
+
+    @Column(name = "token_expiry")
+    @JsonIgnore
+    private LocalDateTime tokenExpiry;
     
     // Constructors
     public User() {
@@ -114,6 +135,22 @@ public class User {
     public void setRole(String role) {
         this.role = role;
     }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getFaculty() {
+        return faculty;
+    }
+
+    public void setFaculty(String faculty) {
+        this.faculty = faculty;
+    }
     
     public LocalDateTime getCreatedAt() {
         return createdAt;
@@ -145,6 +182,38 @@ public class User {
 
     public void setQrImageBase64(String qrImageBase64) {
         this.qrImageBase64 = qrImageBase64;
+    }
+
+    public String getProfileQrPath() {
+        return profileQrPath;
+    }
+
+    public void setProfileQrPath(String profileQrPath) {
+        this.profileQrPath = profileQrPath;
+    }
+
+    public String getAttendanceQrPath() {
+        return attendanceQrPath;
+    }
+
+    public void setAttendanceQrPath(String attendanceQrPath) {
+        this.attendanceQrPath = attendanceQrPath;
+    }
+
+    public String getAttendanceToken() {
+        return attendanceToken;
+    }
+
+    public void setAttendanceToken(String attendanceToken) {
+        this.attendanceToken = attendanceToken;
+    }
+
+    public LocalDateTime getTokenExpiry() {
+        return tokenExpiry;
+    }
+
+    public void setTokenExpiry(LocalDateTime tokenExpiry) {
+        this.tokenExpiry = tokenExpiry;
     }
     
     @PrePersist

@@ -5,6 +5,7 @@ import com.badyauniversity.eventbooking.dto.AdminResponseDTO;
 import com.badyauniversity.eventbooking.model.Admin;
 import com.badyauniversity.eventbooking.repository.AdminRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,8 @@ public class AdminService {
     
     private final AdminRepository adminRepository;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final String allowedAdminEmail;
+    private final String allowedAdminPassword;
     
     // Email validation pattern
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
@@ -30,9 +33,14 @@ public class AdminService {
     );
     
     @Autowired
-    public AdminService(AdminRepository adminRepository, BCryptPasswordEncoder passwordEncoder) {
+    public AdminService(AdminRepository adminRepository,
+                        BCryptPasswordEncoder passwordEncoder,
+                        @Value("${app.admin.email:admin@gmail.com}") String allowedAdminEmail,
+                        @Value("${app.admin.password:0000}") String allowedAdminPassword) {
         this.adminRepository = adminRepository;
         this.passwordEncoder = passwordEncoder;
+        this.allowedAdminEmail = allowedAdminEmail.trim().toLowerCase();
+        this.allowedAdminPassword = allowedAdminPassword;
     }
     
     /**
@@ -53,6 +61,8 @@ public class AdminService {
         if (!EMAIL_PATTERN.matcher(email).matches()) {
             throw new RuntimeException("Invalid email format");
         }
+
+
         
         // Check if email already exists
         if (adminRepository.existsByEmail(email)) {
@@ -71,9 +81,8 @@ public class AdminService {
         if (password == null || password.isEmpty()) {
             throw new RuntimeException("Password is required");
         }
-        
-        // Additional password strength validation
-        validatePasswordStrength(password);
+
+
         
         // Create admin entity
         Admin admin = new Admin();
@@ -225,12 +234,21 @@ public class AdminService {
      * @throws RuntimeException if authentication fails
      */
     public Admin authenticateAdmin(String email, String password) {
-        Admin admin = adminRepository.findByEmail(email)
+        String normalizedEmail = email == null ? "" : email.trim().toLowerCase();
+
+
+        Admin admin = adminRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new RuntimeException("Invalid email or password"));
 
-        if (!passwordEncoder.matches(password, admin.getPassword())) {
-            throw new RuntimeException("Invalid email or password");
+        String stored = admin.getPassword() == null ? "" : admin.getPassword();
+        boolean ok;
+        // Support both BCrypt-hashed passwords and legacy plaintext seeds.
+        if (stored.startsWith("$2a$") || stored.startsWith("$2b$") || stored.startsWith("$2y$")) {
+            ok = passwordEncoder.matches(password, stored);
+        } else {
+            ok = stored.equals(password);
         }
+        if (!ok) throw new RuntimeException("Invalid email or password");
 
         return admin;
     }

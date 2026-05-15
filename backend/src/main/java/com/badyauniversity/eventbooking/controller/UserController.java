@@ -1,16 +1,22 @@
 package com.badyauniversity.eventbooking.controller;
 
 import com.badyauniversity.eventbooking.model.User;
+import com.badyauniversity.eventbooking.service.AttendanceTokenService;
+import com.badyauniversity.eventbooking.service.QrCodeService;
 import com.badyauniversity.eventbooking.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * REST Controller for User operations
@@ -22,10 +28,14 @@ import java.util.Map;
 public class UserController {
     
     private final UserService userService;
+    private final QrCodeService qrCodeService;
+    private final AttendanceTokenService attendanceTokenService;
     
     @Autowired
-    public UserController(UserService userService) {
+    public UserController(UserService userService, QrCodeService qrCodeService, AttendanceTokenService attendanceTokenService) {
         this.userService = userService;
+        this.qrCodeService = qrCodeService;
+        this.attendanceTokenService = attendanceTokenService;
     }
     
     /**
@@ -57,6 +67,9 @@ public class UserController {
         response.put("id", user.getId());
         response.put("name", user.getName());
         response.put("email", user.getEmail());
+        response.put("phone", user.getPhone());
+        response.put("faculty", user.getFaculty());
+        response.put("role", user.getRole());
         response.put("qrToken", user.getQrToken());
         response.put("qrImageBase64", user.getQrImageBase64());
         
@@ -73,6 +86,38 @@ public class UserController {
     public ResponseEntity<User> getUserById(@PathVariable Long id) {
         User user = userService.getUserById(id);
         return ResponseEntity.ok(user);
+    }
+
+    /**
+     * Static profile QR: encodes a stable URL like /user/{id}.
+     * GET /api/users/{id}/qr-profile
+     */
+    @GetMapping(value = "/{id}/qr-profile", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<byte[]> getProfileQr(@PathVariable Long id) {
+        userService.getUserById(id); // validate existence
+        String payload = "/user/" + id;
+        byte[] png = qrCodeService.encodeToPngBytes(payload, 240);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setCacheControl(CacheControl.maxAge(365, TimeUnit.DAYS).cachePublic());
+        return ResponseEntity.ok().headers(headers).contentType(MediaType.IMAGE_PNG).body(png);
+    }
+
+    /**
+     * Temporary attendance QR: encodes /attendance/scan?token=XYZ (token is rotated when refreshed).
+     * GET /api/users/{id}/qr-attendance
+     */
+    @GetMapping(value = "/{id}/qr-attendance", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<byte[]> getAttendanceQr(@PathVariable Long id) {
+        User user = userService.getUserById(id);
+        AttendanceTokenService.IssuedToken issued = attendanceTokenService.issueForUser(user);
+        String payload = "/attendance/scan?token=" + issued.rawToken();
+        byte[] png = qrCodeService.encodeToPngBytes(payload, 240);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setCacheControl(CacheControl.noStore());
+        headers.add("X-Token-Expires-At", issued.expiresAt().toString());
+        return ResponseEntity.ok().headers(headers).contentType(MediaType.IMAGE_PNG).body(png);
     }
     
     /**

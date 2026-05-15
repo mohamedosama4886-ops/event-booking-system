@@ -40,5 +40,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByQrToken(String qrToken);
 
     java.util.List<User> findByQrTokenIsNull();
+
+    Optional<User> findByAttendanceToken(String token);
 }
 

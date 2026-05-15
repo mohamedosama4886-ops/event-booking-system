@@ -32,4 +32,20 @@ public class AttendanceController {
         AttendanceCheckInResponseDTO result = attendanceService.checkIn(body.getEventId(), body.getQrToken());
         return ResponseEntity.ok(result);
     }
+
+    /**
+     * POST /api/attendance/scan?token=XYZ
+     * Body: { "eventId": 1 }
+     */
+    public record AttendanceScanRequest(Long eventId) {
+    }
+
+    @PostMapping("/scan")
+    public ResponseEntity<AttendanceCheckInResponseDTO> scan(@RequestParam("token") String token,
+                                                             @RequestBody(required = false) AttendanceScanRequest body,
+                                                             @RequestParam(value = "eventId", required = false) Long eventId) {
+        Long resolvedEventId = eventId != null ? eventId : (body != null ? body.eventId() : null);
+        AttendanceCheckInResponseDTO result = attendanceService.scan(resolvedEventId, token);
+        return ResponseEntity.ok(result);
+    }
 }

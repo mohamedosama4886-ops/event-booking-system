@@ -63,6 +63,16 @@ public class Event {
     @Email(message = "Contact email must be valid")
     @Column(nullable = false)
     private String contactEmail;
+
+    @Column(name = "target_faculties", length = 1000)
+    private String targetFaculties;
+
+    /**
+     * Admin owner who created this event (used to restrict editing to the creator).
+     * Nullable for legacy/sample events.
+     */
+    @Column(name = "created_by_admin_id")
+    private Long createdByAdminId;
     
     // Constructors
     public Event() {
@@ -179,6 +189,22 @@ public class Event {
     
     public void setContactEmail(String contactEmail) {
         this.contactEmail = contactEmail;
+    }
+
+    public String getTargetFaculties() {
+        return targetFaculties;
+    }
+
+    public void setTargetFaculties(String targetFaculties) {
+        this.targetFaculties = targetFaculties;
+    }
+
+    public Long getCreatedByAdminId() {
+        return createdByAdminId;
+    }
+
+    public void setCreatedByAdminId(Long createdByAdminId) {
+        this.createdByAdminId = createdByAdminId;
     }
     
     @Override

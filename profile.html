@@ -106,7 +106,7 @@
                     </article>
 
                     <article class="moodle-card moodle-card-qr">
-                        <h2 class="moodle-card-title">Profile QR code</h2>
+                        <h2 class="moodle-card-title">Profile QR</h2>
                         <h3 class="moodle-subheading">Opens this student's profile</h3>
                         <p class="moodle-qr-intro">
                             Scan this QR code to open the student's profile page directly.
@@ -118,15 +118,19 @@
                     </article>
 
                     <article class="moodle-card moodle-card-qr">
-                        <h2 class="moodle-card-title">Attendance QR code</h2>
+                        <h2 class="moodle-card-title">Attendance QR</h2>
                         <h3 class="moodle-subheading">QR code for event attendance</h3>
                         <p class="moodle-qr-intro">
-                            This code is unique to you and stays the same for every event. When you arrive, staff scan it to register your attendance.
-                            You must have a booking for that event; the scan links your identity to your ticket.
+                            This code refreshes automatically and expires for security. When you arrive, staff scan it to register your attendance.
+                            You must have a booking for that event.
                         </p>
                         <div class="moodle-qr-wrap">
                             <img id="student-qr-img" class="moodle-qr-image" alt="Your student attendance QR code" width="200" height="200" hidden>
                             <p id="student-qr-fallback" class="moodle-qr-fallback">Loading your QR code…</p>
+                        </div>
+                        <div style="margin-top:12px;display:flex;gap:10px;align-items:center;">
+                            <button type="button" class="moodle-reset-btn" id="refresh-attendance-qr-btn">Refresh attendance QR</button>
+                            <span class="moodle-card-muted" id="attendance-qr-expiry"></span>
                         </div>
                         <p class="moodle-card-muted moodle-qr-hint">Tip: Screenshot or print this page for faster check-in at the venue.</p>
                     </article>
@@ -137,15 +141,6 @@
 
     <script>
         const API_BASE_URL = 'http://localhost:5000';
-
-        function qrImgUrlForText(text, size = 220) {
-            const qs = new URLSearchParams({
-                data: text,
-                size: `${size}x${size}`,
-                margin: '10'
-            });
-            return `https://api.qrserver.com/v1/create-qr-code/?${qs.toString()}`;
-        }
 
         function initialsFromName(name) {
             if (!name || !name.trim()) return '?';
@@ -231,25 +226,80 @@
                 }
             }
 
-            if (user.id) {
-                const url = new URL(window.location.href);
-                url.searchParams.set('userId', user.id);
-                linkQrImg.src = qrImgUrlForText(url.toString(), 220);
-                linkQrImg.hidden = false;
-                linkQrFallback.hidden = true;
-            } else {
-                linkQrFallback.textContent = 'Profile QR code unavailable (missing user ID).';
+            async function ensureProfileQr() {
+                const userId = user.id || user.email || 'unknown-user';
+                const profileUrl = `${window.location.origin}${window.location.pathname}?userId=${encodeURIComponent(userId)}`;
+                
+                try {
+                    if (user.id) {
+                        const res = await fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(user.id)}/qr-profile`);
+                        if (res.ok) {
+                            const blob = await res.blob();
+                            linkQrImg.src = URL.createObjectURL(blob);
+                            linkQrImg.hidden = false;
+                            linkQrFallback.hidden = true;
+                            return;
+                        }
+                    }
+                    throw new Error('Fallback to external API');
+                } catch {
+                    // Fallback to QR server
+                    linkQrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(profileUrl)}`;
+                    linkQrImg.hidden = false;
+                    linkQrFallback.hidden = true;
+                }
             }
 
-            if (user.qrImageBase64) {
-                qrImg.src = user.qrImageBase64;
-                qrImg.hidden = false;
-                qrFallback.hidden = true;
-            } else {
-                qrFallback.textContent = user.id
-                    ? 'Your QR code will appear after the server generates it. Try refreshing in a moment.'
-                    : 'Sign out and sign in again to load your attendance QR code.';
+            async function ensureAttendanceQr() {
+                qrFallback.textContent = 'Loading your QR code…';
+                qrFallback.hidden = false;
+                qrImg.hidden = true;
+                const expiryEl = document.getElementById('attendance-qr-expiry');
+                if (expiryEl) expiryEl.textContent = '';
+                
+                const userId = user.id || user.email || 'unknown-user';
+                const attendanceData = JSON.stringify({ userId: userId, timestamp: Date.now() });
+
+                try {
+                    if (user.id) {
+                        const res = await fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(user.id)}/qr-attendance?ts=${Date.now()}`);
+                        if (res.ok) {
+                            const blob = await res.blob();
+                            qrImg.src = URL.createObjectURL(blob);
+                            qrImg.hidden = false;
+                            qrFallback.hidden = true;
+                            
+                            const expiresAt = res.headers.get('X-Token-Expires-At');
+                            if (expiryEl && expiresAt) {
+                                try {
+                                    const date = new Date(expiresAt);
+                                    expiryEl.textContent = `Expires at: ${date.toLocaleTimeString()}`;
+                                } catch (e) {
+                                    expiryEl.textContent = `Expires at: ${expiresAt}`;
+                                }
+                            }
+                            return;
+                        }
+                    }
+                    throw new Error('Fallback to external API');
+                } catch {
+                    // Fallback to QR server
+                    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(attendanceData)}`;
+                    qrImg.hidden = false;
+                    qrFallback.hidden = true;
+                    if (expiryEl) {
+                        const date = new Date(Date.now() + 5 * 60000); // 5 mins expiry
+                        expiryEl.textContent = `Expires at: ${date.toLocaleTimeString()} (Offline Mode)`;
+                    }
+                }
             }
+
+            await ensureProfileQr();
+            await ensureAttendanceQr();
+
+            document.getElementById('refresh-attendance-qr-btn')?.addEventListener('click', async () => {
+                await ensureAttendanceQr();
+            });
 
             const email = encodeURIComponent(user.email || '');
             if (email) {

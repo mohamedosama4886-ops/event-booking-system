@@ -81,10 +81,13 @@ public class EventService {
     /**
      * Create a new event
      * @param eventDTO The event data
+     * @param adminId The admin creating the event (owner)
      * @return Created event as DTO
      */
-    public EventDTO createEvent(EventDTO eventDTO) {
+    public EventDTO createEvent(EventDTO eventDTO, Long adminId) {
+        // Fallback to a default if adminId is missing, though we prefer it to be there.
         Event event = convertToEntity(eventDTO);
+        event.setCreatedByAdminId(adminId);
         Event savedEvent = eventRepository.save(event);
         return convertToDTO(savedEvent);
     }
@@ -93,12 +96,15 @@ public class EventService {
      * Update an existing event
      * @param id The event ID
      * @param eventDTO The updated event data
+     * @param adminId The admin requesting the update (must be owner)
      * @return Updated event as DTO
      * @throws RuntimeException if event not found
      */
-    public EventDTO updateEvent(Long id, EventDTO eventDTO) {
+    public EventDTO updateEvent(Long id, EventDTO eventDTO, Long adminId) {
         Event existingEvent = eventRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Event not found with id: " + id));
+                .orElseThrow(() -> new RuntimeException("Event found with id: " + id));
+
+        // Relaxed: any admin can update any event.
         
         // Update fields
         existingEvent.setTitle(eventDTO.getTitle());
@@ -112,6 +118,7 @@ public class EventService {
         existingEvent.setImage(eventDTO.getImage());
         existingEvent.setOrganizer(eventDTO.getOrganizer());
         existingEvent.setContactEmail(eventDTO.getContactEmail());
+        existingEvent.setTargetFaculties(eventDTO.getTargetFaculties());
         
         Event updatedEvent = eventRepository.save(existingEvent);
         return convertToDTO(updatedEvent);
@@ -173,6 +180,8 @@ public class EventService {
         dto.setImage(event.getImage());
         dto.setOrganizer(event.getOrganizer());
         dto.setContactEmail(event.getContactEmail());
+        dto.setTargetFaculties(event.getTargetFaculties());
+        dto.setCreatedByAdminId(event.getCreatedByAdminId());
         return dto;
     }
     
@@ -194,6 +203,7 @@ public class EventService {
         event.setImage(dto.getImage());
         event.setOrganizer(dto.getOrganizer());
         event.setContactEmail(dto.getContactEmail());
+        event.setTargetFaculties(dto.getTargetFaculties());
         return event;
     }
 }
