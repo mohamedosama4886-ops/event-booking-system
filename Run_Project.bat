@@ -41,8 +41,26 @@ if exist "PROJECT2\backend" ( cd "PROJECT2\backend" ) else if exist "backend" ( 
 start "Badya_Backend" cmd /k ""%MVN_EXE%" spring-boot:run"
 
 echo.
-echo [+] Waiting 15 seconds for system startup...
-timeout /t 15 /nobreak > nul
+:: 4. Start WhatsApp Microservice
+echo [+] Starting WhatsApp Microservice...
+set "NODE_EXE=C:\Program Files\nodejs\node.exe"
+set "WHATSAPP_DIR=%~dp0PROJECT2\whatsapp-service"
+if not exist "%WHATSAPP_DIR%" set "WHATSAPP_DIR=%~dp0whatsapp-service"
+
+if exist "%WHATSAPP_DIR%" (
+    echo [OK] WhatsApp folder found at: %WHATSAPP_DIR%
+    
+    :: Start Node.js service in a new window using absolute node path
+    start "Badya_WhatsApp_Service" /D "%WHATSAPP_DIR%" cmd /k ""%NODE_EXE%" index.js"
+) else (
+    echo [ERROR] WhatsApp folder NOT FOUND. 
+    echo Searched in: %WHATSAPP_DIR%
+    pause
+)
+
+echo.
+echo [+] Waiting 20 seconds for system startup...
+timeout /t 20 /nobreak > nul
 
 echo.
 
